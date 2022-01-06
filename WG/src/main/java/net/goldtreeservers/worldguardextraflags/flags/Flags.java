@@ -51,7 +51,11 @@ public final class Flags
 	public final static SetFlag<PotionEffect> GIVE_EFFECTS = new SetFlag<PotionEffect>("give-effects", new PotionEffectFlag(null));
 	
 	public final static StateFlag FLY = new StateFlag("fly", false);
-	
+
+	public final static StateFlag THROW_TRIDENT = new StateFlag("throw-trident", true);
+
+	public static final StateFlag SHOOT_BOW = new StateFlag("shoot-bow", true);
+
 	public final static SetFlag<SoundData> PLAY_SOUNDS = new SetFlag<SoundData>("play-sounds", new SoundDataFlag(null));
 	
 	public final static StateFlag MYTHICMOB_EGGS = new StateFlag("mythicmobs-eggs", true);

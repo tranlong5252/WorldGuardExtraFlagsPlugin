@@ -2,10 +2,13 @@ package net.goldtreeservers.worldguardextraflags.listeners;
 
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Trident;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
@@ -208,6 +211,28 @@ public class PlayerListener implements Listener
 		if (value != null)
 		{
 			player.setAllowFlight(value);
+		}
+	}
+
+	@EventHandler (priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	public void onPlayerThrowTrident(ProjectileLaunchEvent event) {
+		if (event.getEntity() instanceof Trident && event.getEntity().getShooter() instanceof Player) {
+			Player player = (Player) event.getEntity().getShooter();
+			ApplicableRegionSet regions = this.plugin.getWorldGuardCommunicator().getRegionContainer().createQuery().getApplicableRegions(player.getLocation());
+			if (WorldGuardUtils.queryState(player, player.getWorld(), regions.getRegions(), Flags.THROW_TRIDENT) == State.DENY) {
+				event.setCancelled(true);
+			}
+		}
+	}
+
+	@EventHandler (priority = EventPriority.HIGHEST, ignoreCancelled = true)
+	public void onPlayerUseBow(EntityShootBowEvent event) {
+		if (event.getEntity() instanceof Player) {
+			Player player = (Player) event.getEntity();
+			ApplicableRegionSet regions = this.plugin.getWorldGuardCommunicator().getRegionContainer().createQuery().getApplicableRegions(player.getLocation());
+			if (WorldGuardUtils.queryState(player, player.getWorld(), regions.getRegions(), Flags.SHOOT_BOW) == State.DENY) {
+				event.setCancelled(true);
+			}
 		}
 	}
 }

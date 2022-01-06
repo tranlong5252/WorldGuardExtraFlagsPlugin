@@ -49,6 +49,8 @@ public interface WorldGuardCommunicator
 		flagRegistry.register(Flags.WORLDEDIT);
 		flagRegistry.register(Flags.GIVE_EFFECTS);
 		flagRegistry.register(Flags.FLY);
+		flagRegistry.register(Flags.THROW_TRIDENT);
+		flagRegistry.register(Flags.SHOOT_BOW);
 		flagRegistry.register(Flags.FLY_SPEED);
 		flagRegistry.register(Flags.PLAY_SOUNDS);
 		flagRegistry.register(Flags.MYTHICMOB_EGGS);
