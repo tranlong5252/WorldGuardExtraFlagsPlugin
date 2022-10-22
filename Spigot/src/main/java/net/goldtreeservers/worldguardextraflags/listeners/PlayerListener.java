@@ -238,10 +238,9 @@ public class PlayerListener implements Listener
 
 	@EventHandler (priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerThrowTrident(ProjectileLaunchEvent event) {
-		if (event.getEntity() instanceof Trident && event.getEntity().getShooter() instanceof Player) {
-			Player player = (Player) event.getEntity().getShooter();
-			ApplicableRegionSet regions = this.plugin.getWorldGuardCommunicator().getRegionContainer().createQuery().getApplicableRegions(player.getLocation());
-			if (WorldGuardUtils.queryState(player, player.getWorld(), regions.getRegions(), Flags.THROW_TRIDENT) == State.DENY) {
+		if (event.getEntity() instanceof Trident && event.getEntity().getShooter() instanceof Player player) {
+			LocalPlayer localPlayer = this.worldGuardPlugin.wrapPlayer(player);
+			if (this.regionContainer.createQuery().queryState(localPlayer.getLocation(), localPlayer, Flags.THROW_TRIDENT) == State.DENY) {
 				event.setCancelled(true);
 			}
 		}
@@ -249,10 +248,9 @@ public class PlayerListener implements Listener
 
 	@EventHandler (priority = EventPriority.HIGHEST, ignoreCancelled = true)
 	public void onPlayerUseBow(EntityShootBowEvent event) {
-		if (event.getEntity() instanceof Player) {
-			Player player = (Player) event.getEntity();
-			ApplicableRegionSet regions = this.plugin.getWorldGuardCommunicator().getRegionContainer().createQuery().getApplicableRegions(player.getLocation());
-			if (WorldGuardUtils.queryState(player, player.getWorld(), regions.getRegions(), Flags.SHOOT_BOW) == State.DENY) {
+		if (event.getEntity() instanceof Player player) {
+			LocalPlayer localPlayer = this.worldGuardPlugin.wrapPlayer(player);
+			if (this.regionContainer.createQuery().queryState(localPlayer.getLocation(), localPlayer, Flags.SHOOT_BOW) == State.DENY) {
 				event.setCancelled(true);
 			}
 		}
