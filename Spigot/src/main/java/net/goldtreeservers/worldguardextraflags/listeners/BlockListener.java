@@ -1,61 +1,56 @@
 package net.goldtreeservers.worldguardextraflags.listeners;
 
-import java.util.Set;
-
+import com.sk89q.worldedit.bukkit.BukkitAdapter;
+import com.sk89q.worldedit.util.Location;
+import com.sk89q.worldedit.world.World;
+import com.sk89q.worldguard.LocalPlayer;
+import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
+import com.sk89q.worldguard.protection.regions.RegionContainer;
+import com.sk89q.worldguard.session.SessionManager;
 import org.bukkit.Material;
-import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Event.Result;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.EntityBlockFormEvent;
 
-import com.sk89q.worldguard.bukkit.event.block.BreakBlockEvent;
-import com.sk89q.worldguard.bukkit.event.block.PlaceBlockEvent;
-import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.flags.StateFlag.State;
 
-import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import net.goldtreeservers.worldguardextraflags.WorldGuardExtraFlagsPlugin;
 import net.goldtreeservers.worldguardextraflags.flags.Flags;
-import net.goldtreeservers.worldguardextraflags.utils.SupportedFeatures;
-import net.goldtreeservers.worldguardextraflags.wg.WorldGuardUtils;
 
 @RequiredArgsConstructor
 public class BlockListener implements Listener
 {
-	@Getter private final WorldGuardExtraFlagsPlugin plugin;
+	private final WorldGuardPlugin worldGuardPlugin;
+	private final RegionContainer regionContainer;
+	private final SessionManager sessionManager;
 	
 	@EventHandler(ignoreCancelled = true)
 	public void onEntityBlockFormEvent(EntityBlockFormEvent event)
 	{
-		if (SupportedFeatures.isFrostwalkerSupported())
+		BlockState newState = event.getNewState();
+		if (newState.getType() == Material.FROSTED_ICE)
 		{
-			BlockState newState = event.getNewState();
-			if (newState.getType() == Material.FROSTED_ICE)
+			Location location = BukkitAdapter.adapt(newState.getLocation());
+
+			LocalPlayer localPlayer;
+			if (event.getEntity() instanceof Player player)
 			{
-				ApplicableRegionSet regions = this.plugin.getWorldGuardCommunicator().getRegionContainer().createQuery().getApplicableRegions(newState.getLocation());
-				
-				Entity entity = event.getEntity();
-				if (entity instanceof Player)
+				localPlayer = this.worldGuardPlugin.wrapPlayer(player);
+				if (this.sessionManager.hasBypass(localPlayer, (World) location.getExtent()))
 				{
-					Player player = (Player)entity;
-					if (WorldGuardUtils.queryValue(player, player.getWorld(), regions.getRegions(), Flags.FROSTWALKER) == State.DENY)
-					{
-						event.setCancelled(true);
-					}
+					return;
 				}
-				else
-				{
-					if (regions.queryValue(null, Flags.FROSTWALKER) == State.DENY)
-					{
-						event.setCancelled(true);
-					}
-				}
+			}
+			else
+			{
+				localPlayer = null;
+			}
+
+			if (this.regionContainer.createQuery().queryValue(location, localPlayer, Flags.FROSTWALKER) == State.DENY)
+			{
+				event.setCancelled(true);
 			}
 		}
 	}

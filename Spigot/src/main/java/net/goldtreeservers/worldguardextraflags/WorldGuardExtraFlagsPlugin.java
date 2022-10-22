@@ -1,19 +1,24 @@
 package net.goldtreeservers.worldguardextraflags;
 
 import java.lang.reflect.Field;
-import java.lang.reflect.ParameterizedType;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.stream.Collectors;
 
+import com.sk89q.worldedit.bukkit.BukkitAdapter;
+import com.sk89q.worldedit.math.BlockVector3;
+import com.sk89q.worldguard.WorldGuard;
+import com.sk89q.worldguard.protection.flags.StateFlag;
+import com.sk89q.worldguard.protection.flags.registry.FlagRegistry;
+import com.sk89q.worldguard.protection.managers.RegionManager;
+import com.sk89q.worldguard.protection.regions.ProtectedRegion;
+import com.sk89q.worldguard.protection.regions.RegionContainer;
+import com.sk89q.worldguard.session.SessionManager;
 import net.goldtreeservers.worldguardextraflags.listeners.*;
+import net.goldtreeservers.worldguardextraflags.wg.handlers.*;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.World;
-import org.bukkit.block.BlockState;
-import org.bukkit.event.entity.EntityToggleGlideEvent;
-import org.bukkit.event.world.PortalCreateEvent;
 import org.bukkit.plugin.Plugin;
 
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
@@ -21,25 +26,23 @@ import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.flags.Flag;
 
 import lombok.Getter;
-import net.goldtreeservers.worldguardextraflags.essentials.EssentialsHelper;
-import net.goldtreeservers.worldguardextraflags.fawe.FAWEHelper;
 import net.goldtreeservers.worldguardextraflags.flags.Flags;
 import net.goldtreeservers.worldguardextraflags.protocollib.ProtocolLibHelper;
-import net.goldtreeservers.worldguardextraflags.utils.SupportedFeatures;
-import net.goldtreeservers.worldguardextraflags.wg.WorldGuardUtils;
-import net.goldtreeservers.worldguardextraflags.wg.wrappers.WorldGuardCommunicator;
-import net.goldtreeservers.worldguardextraflags.wg.wrappers.v6.WorldGuardSixCommunicator;
-import net.goldtreeservers.worldguardextraflags.wg.wrappers.v7.WorldGuardSevenCommunicator;
+import org.bukkit.plugin.java.JavaPlugin;
 
-public class WorldGuardExtraFlagsPlugin extends AbstractWorldGuardExtraFlagsPlugin
+public class WorldGuardExtraFlagsPlugin extends JavaPlugin
 {
+	private static final Set<Flag<?>> FLAGS = WorldGuardExtraFlagsPlugin.getPluginFlags();
 	@Getter private static WorldGuardExtraFlagsPlugin plugin;
-	
-	@Getter private WorldGuardPlugin worldGuardPlugin;
+
 	@Getter private WorldEditPlugin worldEditPlugin;
 
-	@Getter private EssentialsHelper essentialsHelper;
-	@Getter private FAWEHelper faweHelper;
+	@Getter private WorldGuardPlugin worldGuardPlugin;
+	@Getter private WorldGuard worldGuard;
+
+	@Getter private RegionContainer regionContainer;
+	@Getter private SessionManager sessionManager;
+
 	@Getter private ProtocolLibHelper protocolLibHelper;
 	
 	public WorldGuardExtraFlagsPlugin()
@@ -50,53 +53,47 @@ public class WorldGuardExtraFlagsPlugin extends AbstractWorldGuardExtraFlagsPlug
 	@Override
 	public void onLoad()
 	{
-		this.worldEditPlugin = (WorldEditPlugin)this.getServer().getPluginManager().getPlugin("WorldEdit");
-		this.worldGuardPlugin = (WorldGuardPlugin)this.getServer().getPluginManager().getPlugin("WorldGuard");
-		
-		this.worldGuardCommunicator = WorldGuardExtraFlagsPlugin.createWorldGuardCommunicator();
-		if (this.worldGuardCommunicator == null)
-		{
-			throw new RuntimeException("Unsupported WorldGuard version: " + this.worldGuardPlugin.getDescription().getVersion());
-		}
-		
-		WorldGuardUtils.setCommunicator(this.worldGuardCommunicator);
-		
+		this.worldEditPlugin = (WorldEditPlugin) this.getServer().getPluginManager().getPlugin("WorldEdit");
+		this.worldGuardPlugin = (WorldGuardPlugin) this.getServer().getPluginManager().getPlugin("WorldGuard");
+
+		this.worldGuard = WorldGuard.getInstance();
+
 		try
 		{
-			this.worldGuardCommunicator.onLoad(this);
+			FlagRegistry flagRegistry = this.worldGuard.getFlagRegistry();
+			flagRegistry.register(Flags.TELEPORT_ON_ENTRY);
+			flagRegistry.register(Flags.TELEPORT_ON_EXIT);
+			flagRegistry.register(Flags.COMMAND_ON_ENTRY);
+			flagRegistry.register(Flags.COMMAND_ON_EXIT);
+			flagRegistry.register(Flags.CONSOLE_COMMAND_ON_ENTRY);
+			flagRegistry.register(Flags.CONSOLE_COMMAND_ON_EXIT);
+			flagRegistry.register(Flags.WALK_SPEED);
+			flagRegistry.register(Flags.KEEP_INVENTORY);
+			flagRegistry.register(Flags.KEEP_EXP);
+			flagRegistry.register(Flags.CHAT_PREFIX);
+			flagRegistry.register(Flags.CHAT_SUFFIX);
+			flagRegistry.register(Flags.BLOCKED_EFFECTS);
+			flagRegistry.register(Flags.GODMODE);
+			flagRegistry.register(Flags.RESPAWN_LOCATION);
+			flagRegistry.register(Flags.WORLDEDIT);
+			flagRegistry.register(Flags.GIVE_EFFECTS);
+			flagRegistry.register(Flags.FLY);
+			flagRegistry.register(Flags.FLY_SPEED);
+			flagRegistry.register(Flags.PLAY_SOUNDS);
+			flagRegistry.register(Flags.FROSTWALKER);
+			flagRegistry.register(Flags.NETHER_PORTALS);
+			flagRegistry.register(Flags.GLIDE);
+			flagRegistry.register(Flags.CHUNK_UNLOAD);
+			flagRegistry.register(Flags.ITEM_DURABILITY);
+			flagRegistry.register(Flags.JOIN_LOCATION);
 		}
 		catch (Exception e)
 		{
 			this.getServer().getPluginManager().disablePlugin(this);
-			
-			throw new RuntimeException("Failed to load WorldGuard communicator", e);
-		}
 
-		//Soft dependencies, due to some compatibility issues or add flags related to a plugin
-		try
-		{
-			Plugin essentialsPlugin = WorldGuardExtraFlagsPlugin.getPlugin().getServer().getPluginManager().getPlugin("Essentials");
-			if (essentialsPlugin != null)
-			{
-				this.essentialsHelper = new EssentialsHelper(this, essentialsPlugin);
-			}
-		}
-		catch(Throwable ignore)
-		{
-			
-		}
-
-		try
-		{
-			Plugin fastAsyncWorldEditPlugin = this.getServer().getPluginManager().getPlugin("FastAsyncWorldEdit");
-			if (fastAsyncWorldEditPlugin != null)
-			{
-				this.faweHelper = new FAWEHelper(this, fastAsyncWorldEditPlugin);
-			}
-		}
-		catch(Throwable ignore)
-		{
-			
+			throw new RuntimeException(e instanceof IllegalStateException ?
+					"WorldGuard prevented flag registration. Did you reload the plugin? This is not supported!" :
+					"Flag registration failed!", e);
 		}
 		
 		try
@@ -109,99 +106,80 @@ public class WorldGuardExtraFlagsPlugin extends AbstractWorldGuardExtraFlagsPlug
 		}
 		catch(Throwable ignore)
 		{
-			
 		}
 	}
 	
 	@Override
 	public void onEnable()
 	{
-		if (this.worldGuardCommunicator == null)
-		{
-			this.getServer().getPluginManager().disablePlugin(this);
-			
-			return;
-		}
-		
-		try
-		{
-			this.worldGuardCommunicator.onEnable(this);
-		}
-		catch (Exception e)
-		{
-			this.getServer().getPluginManager().disablePlugin(this);
-			
-			throw new RuntimeException("Failed to enable WorldGuard communicator", e);
-		}
+		this.regionContainer = this.worldGuard.getPlatform().getRegionContainer();
+		this.sessionManager = this.worldGuard.getPlatform().getSessionManager();
 
-		this.getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
-		this.getServer().getPluginManager().registerEvents(new BlockListener(this), this);
-		this.getServer().getPluginManager().registerEvents(new WorldListener(this), this);
+		this.sessionManager.registerHandler(TeleportOnEntryFlagHandler.FACTORY(plugin), null);
+		this.sessionManager.registerHandler(TeleportOnExitFlagHandler.FACTORY(plugin), null);
+		this.sessionManager.registerHandler(CommandOnEntryFlagHandler.FACTORY(), null);
+		this.sessionManager.registerHandler(CommandOnExitFlagHandler.FACTORY(), null);
+		this.sessionManager.registerHandler(ConsoleCommandOnEntryFlagHandler.FACTORY(), null);
+		this.sessionManager.registerHandler(ConsoleCommandOnExitFlagHandler.FACTORY(), null);
+		this.sessionManager.registerHandler(WalkSpeedFlagHandler.FACTORY(), null);
+		this.sessionManager.registerHandler(BlockedEffectsFlagHandler.FACTORY(), null);
+		this.sessionManager.registerHandler(GodmodeFlagHandler.FACTORY(), null);
+		this.sessionManager.registerHandler(GiveEffectsFlagHandler.FACTORY(), null);
+		this.sessionManager.registerHandler(FlyFlagHandler.FACTORY(), null);
+		this.sessionManager.registerHandler(FlySpeedFlagHandler.FACTORY(), null);
+		this.sessionManager.registerHandler(PlaySoundsFlagHandler.FACTORY(plugin), null);
+		this.sessionManager.registerHandler(GlideFlagHandler.FACTORY(), null);
 
-		if (this.worldGuardCommunicator.isLegacy())
-		{
-			this.getServer().getPluginManager().registerEvents(new BlockListenerWG(this), this);
-		}
-		
-		try
-		{
-			if (EntityToggleGlideEvent.class != null) //LOL, Just making it look nice xD
-			{
-				this.getServer().getPluginManager().registerEvents(new EntityListenerOnePointNine(this), this);
-			}
-		}
-		catch(NoClassDefFoundError ignored)
-		{
-			
-		}
-		
-		try
-		{
-			ParameterizedType type = (ParameterizedType)PortalCreateEvent.class.getDeclaredField("blocks").getGenericType();
-			Class<?> clazz = (Class<?>)type.getActualTypeArguments()[0];
-			if (clazz == BlockState.class)
-			{
-				this.getServer().getPluginManager().registerEvents(new net.goldtreeservers.worldguardextraflags.spigot1_14.EntityListener(this), this);
-			}
-			else
-			{
-				this.getServer().getPluginManager().registerEvents(new EntityListener(this), this);
-			}
-		}
-		catch(Throwable ignored)
-		{
-			this.getServer().getPluginManager().registerEvents(new EntityListener(this), this);
-		}
-		
-		if (this.faweHelper != null)
-		{
-			this.faweHelper.onEnable();
-		}
-		else
-		{
-			this.worldEditPlugin.getWorldEdit().getEventBus().register(new WorldEditListener(this));
-		}
-		
-		if (this.essentialsHelper != null)
-		{
-			this.essentialsHelper.onEnable();
-		}
+		this.getServer().getPluginManager().registerEvents(new PlayerListener(this, this.worldGuardPlugin, this.regionContainer, this.sessionManager), this);
+		this.getServer().getPluginManager().registerEvents(new BlockListener(this.worldGuardPlugin, this.regionContainer, this.sessionManager), this);
+		this.getServer().getPluginManager().registerEvents(new WorldListener(this, this.regionContainer), this);
+		this.getServer().getPluginManager().registerEvents(new EntityListener(this.worldGuardPlugin, this.regionContainer, this.sessionManager), this);
+
+		this.worldEditPlugin.getWorldEdit().getEventBus().register(new WorldEditListener(this.worldGuardPlugin, this.regionContainer, this.sessionManager));
 		
 		if (this.protocolLibHelper != null)
 		{
 			this.protocolLibHelper.onEnable();
 		}
-		else if (SupportedFeatures.isPotionEffectEventSupported())
+		else
 		{
-			this.getServer().getPluginManager().registerEvents(new EntityPotionEffectEventListener(this), this);
+			this.getServer().getPluginManager().registerEvents(new EntityPotionEffectEventListener(this.worldGuardPlugin, this.sessionManager), this);
 		}
 		
 		for(World world : this.getServer().getWorlds())
 		{
-			this.getWorldGuardCommunicator().doUnloadChunkFlagCheck(world);
+			this.doUnloadChunkFlagCheck(world);
 		}
 		
 		this.setupMetrics();
+	}
+
+	public void doUnloadChunkFlagCheck(org.bukkit.World world)
+	{
+		RegionManager regionManager = this.regionContainer.get(BukkitAdapter.adapt(world));
+		if (regionManager == null)
+		{
+			return;
+		}
+
+		for (ProtectedRegion region : regionManager.getRegions().values())
+		{
+			if (region.getFlag(Flags.CHUNK_UNLOAD) == StateFlag.State.DENY)
+			{
+				this.getLogger().info("Loading chunks for region " + region.getId() + " located in " + world.getName() + " due to chunk-unload flag being deny");
+
+				BlockVector3 min = region.getMinimumPoint();
+				BlockVector3 max = region.getMaximumPoint();
+
+				for(int x = min.getBlockX() >> 4; x <= max.getBlockX() >> 4; x++)
+				{
+					for(int z = min.getBlockZ() >> 4; z <= max.getBlockZ() >> 4; z++)
+					{
+						world.getChunkAt(x, z).addPluginChunkTicket(this);
+					}
+				}
+			}
+		}
 	}
 	
 	private void setupMetrics()
@@ -209,32 +187,23 @@ public class WorldGuardExtraFlagsPlugin extends AbstractWorldGuardExtraFlagsPlug
 		final int bStatsPluginId = 7301;
 		
         Metrics metrics = new Metrics(this, bStatsPluginId);
-        metrics.addCustomChart(new Metrics.AdvancedPie("flags_count", new Callable<Map<String, Integer>>()
-        {
-        	private final Set<Flag<?>> flags = WorldGuardExtraFlagsPlugin.this.getPluginFlags();
-        	
-			@Override
-			public Map<String, Integer> call() throws Exception
-			{
-	            Map<Flag<?>, Integer> valueMap = this.flags.stream().collect(Collectors.toMap((v) -> v, (v) -> 0));
+        metrics.addCustomChart(new Metrics.AdvancedPie("flags_count", () ->
+		{
+			Map<Flag<?>, Integer> valueMap = WorldGuardExtraFlagsPlugin.FLAGS.stream().collect(Collectors.toMap(v -> v, v -> 0));
 
-	            WorldGuardExtraFlagsPlugin.this.getWorldGuardCommunicator().getRegionContainer().getLoaded().forEach((m) ->
-	            {
-	            	m.getRegions().values().forEach((r) ->
-	            	{
-	            		r.getFlags().keySet().forEach((f) -> 
-	            		{
-	            			valueMap.computeIfPresent(f, (k, v) -> v + 1);
-	            		});
-	            	});
-	            });
-	            
-				return valueMap.entrySet().stream().collect(Collectors.toMap((v) -> v.getKey().getName(), (v) -> v.getValue()));
-			}
-        }));
+			WorldGuard.getInstance().getPlatform().getRegionContainer().getLoaded().forEach(m ->
+			{
+				m.getRegions().values().forEach(r ->
+				{
+					r.getFlags().keySet().forEach(f -> valueMap.computeIfPresent(f, (k, v) -> 1));
+				});
+			});
+
+			return valueMap.entrySet().stream().collect(Collectors.toMap(v -> v.getKey().getName(), v -> v.getValue()));
+		}));
 	}
 	
-	private Set<Flag<?>> getPluginFlags()
+	private static Set<Flag<?>> getPluginFlags()
 	{
 		Set<Flag<?>> flags = new HashSet<>();
 		
@@ -250,34 +219,5 @@ public class WorldGuardExtraFlagsPlugin extends AbstractWorldGuardExtraFlagsPlug
 		}
 		
 		return flags;
-	}
-	
-	public static WorldGuardCommunicator createWorldGuardCommunicator()
-	{
-		try
-		{
-			Class.forName("com.sk89q.worldguard.WorldGuard"); //Only exists in WG 7
-			
-			return new WorldGuardSevenCommunicator();
-		}
-		catch (Throwable ignored)
-		{
-			
-		}
-		
-		try
-		{
-			Class<?> clazz = Class.forName("com.sk89q.worldguard.bukkit.WorldGuardPlugin");
-			if (clazz.getMethod("getFlagRegistry") != null)
-			{
-				return new WorldGuardSixCommunicator();
-			}
-		}
-		catch (Throwable ignored)
-		{
-			ignored.printStackTrace();
-		}
-		
-		return null;
 	}
 }
