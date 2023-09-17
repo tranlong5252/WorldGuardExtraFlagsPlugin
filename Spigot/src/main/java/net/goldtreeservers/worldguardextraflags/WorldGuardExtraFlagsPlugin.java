@@ -88,6 +88,7 @@ public class WorldGuardExtraFlagsPlugin extends JavaPlugin
 			flagRegistry.register(Flags.JOIN_LOCATION);
 			flagRegistry.register(Flags.THROW_TRIDENT);
 			flagRegistry.register(Flags.SHOOT_BOW);
+			flagRegistry.register(Flags.TOWNY_FLY);
 		}
 		catch (Exception e)
 		{
@@ -128,6 +129,7 @@ public class WorldGuardExtraFlagsPlugin extends JavaPlugin
 		this.sessionManager.registerHandler(GodmodeFlagHandler.FACTORY(), null);
 		this.sessionManager.registerHandler(GiveEffectsFlagHandler.FACTORY(), null);
 		this.sessionManager.registerHandler(FlyFlagHandler.FACTORY(), null);
+		this.sessionManager.registerHandler(TownyFlyFlagHandler.FACTORY(), null);
 		this.sessionManager.registerHandler(FlySpeedFlagHandler.FACTORY(), null);
 		this.sessionManager.registerHandler(PlaySoundsFlagHandler.FACTORY(plugin), null);
 		this.sessionManager.registerHandler(GlideFlagHandler.FACTORY(), null);

@@ -8,6 +8,6 @@ author: isokissa3
 website: https://goldtreevers.net
 
 depend: [ WorldGuard ]
-softdepend: [ ProtocolLib ]
+softdepend: [ ProtocolLib, TownyAdvanced ]
 
 main: net.goldtreeservers.worldguardextraflags.WorldGuardExtraFlagsPlugin

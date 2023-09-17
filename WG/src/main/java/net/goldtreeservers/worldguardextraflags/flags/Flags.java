@@ -65,4 +65,6 @@ public final class Flags
 	public final static StateFlag ITEM_DURABILITY = new StateFlag("item-durability", true);
 	
 	public final static LocationFlag JOIN_LOCATION = new LocationFlag("join-location");
+
+	public final static StateFlag TOWNY_FLY = new StateFlag("towny-fly", false);
 }

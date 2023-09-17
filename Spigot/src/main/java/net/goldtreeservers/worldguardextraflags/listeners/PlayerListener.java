@@ -6,6 +6,7 @@ import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.regions.RegionContainer;
 import com.sk89q.worldguard.session.SessionManager;
+import net.goldtreeservers.worldguardextraflags.wg.handlers.TownyFlyFlagHandler;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Trident;
@@ -162,6 +163,15 @@ public class PlayerListener implements Listener
 					}
 				}.runTask(WorldGuardExtraFlagsPlugin.getPlugin());
 			}
+			Boolean townyValue = wgSession.getHandler(TownyFlyFlagHandler.class).getCurrentValue();
+			if (townyValue != null) {
+				new BukkitRunnable() {
+					@Override
+					public void run() {
+						PlayerListener.this.checkFlyStatus(player);
+					}
+				}.runTask(WorldGuardExtraFlagsPlugin.getPlugin());
+			}
 		}
 		else
 		{
@@ -179,9 +189,10 @@ public class PlayerListener implements Listener
 	private void checkFlyStatus(Player player)
 	{
 		Boolean value = this.sessionManager.get(this.worldGuardPlugin.wrapPlayer(player)).getHandler(FlyFlagHandler.class).getCurrentValue();
-		if (value != null)
-		{
-			player.setAllowFlight(value);
+		Boolean townValue = this.sessionManager.get(this.worldGuardPlugin.wrapPlayer(player)).getHandler(TownyFlyFlagHandler.class).getCurrentValue();
+		if (value != null || townValue != null) {
+			boolean v = value != null ? value : townValue;
+			player.setAllowFlight(v);
 		}
 	}
 
